@@ -1,0 +1,11 @@
+name: testingtool
+title:
+account: sarahzhou
+server: shinyapps.io
+appId: 200431
+bundleId: 964815
+url: https://sarahzhou.shinyapps.io/testingtool/
+when: 1504376546.35497
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData

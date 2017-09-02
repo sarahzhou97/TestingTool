@@ -1,0 +1,169 @@
+---
+title: "Sample Size Calculator"
+author: "Sarah Zhou"
+output: html_document
+---
+
+Library
+```{r library}
+library(dplyr)
+library(pwr)
+```
+
+Default variables
+```{r default_var}
+default_arr <- c(0.01,0.02,0.05,0.1)
+defaultSamplePerc_arr <- seq(0.05,0.5,0.05)
+```
+
+Sample Size Formulas
+```{r formulas}
+two_sample_2sided_proportion <- function(pA, pB, kappa=1, power=0.8, sig.level = 0.05) {
+  # Computes the sample size needed for a 2-sided 2-sample proportion z-test
+  #
+  # Args:
+  #   pA: proportion A (decimal form)
+  #   pB: proportion B (decimal form)
+  #   kappa: ratio between nA (sample size A) and nB (sample size B) -> (nA/nB). Default is 1.
+  #   power: decimal form
+  #   sig.level: decimal form
+  #
+  # Returns:
+  #    The sample size needed for a 2-sided 2-sample proportion z-test
+  
+  nB<-(pA*(1-pA)/kappa+pB*(1-pB))*((qnorm(1-sig.level/2)+qnorm(power))/(pA-pB))^2
+  nA<-kappa*nB
+  return(as.integer(ceiling(nB+nA)))
+}
+
+two_sample_2sided_mean <- function(muA,muB,sd,kappa=1,power=0.8,sig.level = 0.05) {
+  # Computes the sample size needed for a 2-sided 2-sample t-test 
+  #
+  # Args:
+  #   muA: mean A (decimal form)
+  #   muB: mean B (decimal form)
+  #   sd: pooled standard deviation
+  #   kappa: ratio between nA (sample size A) and nB (sample size B) -> (nA/nB). Default is 1.
+  #   power: decimal form
+  #   sig.level: decimal form
+  #
+  # Returns:
+  #    The sample size needed for a 2-sided 2-sample t-test 
+  
+  nB=(1+1/kappa)*(sd*(qnorm(1-sig.level/2)+qnorm(power))/(muB-muA))^2
+  nA <- kappa * nB
+  return(as.integer(ceiling(nB+nA)))
+}
+
+```
+
+
+Sample Size Matrix (single) - for 2-sample tests
+```{r matrix}
+getSampleSizeMatrix <- function(test,test_val_arr, delta_arr = default_arr,samplePerc_arr = defaultSamplePerc_arr,power=0.8,sig.level=0.05,avgSamplesPerDay=NULL) {
+  # Generates a matrix of sample sizes or test duration with varying delta (row) and % holdout/split (column) values specified by parameters
+  #
+  # Example: 
+  #     - getSampleSizeMatrix('z', c(0.5))
+  #     - getSampleSizeMatrix('t', c(5,1), delta_arr = c(0.01,0.02,0.03,0.04),samplePerc_arr = c(0.1,0.2,0.3,0.4))
+  #
+  # Args:
+  #   test: 'z' or 't' test (string)
+  #   test_val_arr: 
+  #     - c(pA) for z-test
+  #     - c(muA,standard deviation) for t-test
+  #   delta_arr: array of delta values (see default above in "Default Values" section)
+  #   samplePerc_arr: array of % holdout/split values (see default above in "Default Values" section)
+  #   power: decimal form
+  #   sig.level: decimal form
+  #
+  # Returns:
+  #    2D Dataframe of sample sizes with varying delta (row) and % holdout/split (column) values specified by arguments
+  
+  ret <- vector(mode = 'list',length=length(delta_arr))
+  for(i in 1:length(samplePerc_arr)) {
+    row <- rep(NA,length(delta_arr))
+    for(j in 1:length(delta_arr)) {
+      
+      samplePerc <- samplePerc_arr[i]
+      delta <- delta_arr[j]
+      kappa <- (1-samplePerc)/samplePerc
+      
+      if(test=='t'){
+        #Error Checking
+        if(length(test_val_arr )!=2) {
+          stop('incorrect number of values entered in val_arr')
+        } else {
+          muA <- test_val_arr[1]
+          muB <- muA*(1+delta)
+          sd <- test_val_arr [2]
+          if(is.null(avgSamplesPerDay)) {
+            row[j] <- two_sample_2sided_mean(muA,muB,sd,kappa,sig.level = sig.level,power = power)
+          } else {
+            row[j] <- as.integer(ceiling(two_sample_2sided_mean(muA,muB,sd,kappa,sig.level = sig.level,power = power)/avgSamplesPerDay))
+          }
+          
+        }
+      } else if(test=='z') {
+          #Error Checking
+         if(length(test_val_arr )!=1) {
+          stop('incorrect number of values entered in val_arr')
+        } else {
+          pA <- test_val_arr[1]
+          
+          #Error Checking
+          if(pA >1) {
+            stop('pA must be less than 1')
+          }
+          pB <- pA*(1+delta)
+          if(is.null(avgSamplesPerDay)) {
+            row[j] <- two_sample_2sided_proportion(pA,pB,kappa,sig.level = sig.level,power = power)
+          } else {
+            row[j] <- as.integer(ceiling(two_sample_2sided_proportion(pA,pB,kappa,sig.level = sig.level,power = power)/avgSamplesPerDay))
+          }
+        }
+      }
+    }
+    ret[[i]] = row
+  }
+  ret <- do.call(rbind,ret)
+  colnames(ret) <- delta_arr
+  rownames(ret) <- samplePerc_arr
+  return(ret)
+}
+```
+
+Sample Size Matrices (Multiple)
+```{r matrices}
+getSampleSizeMatrices <- function(test,val_list, delta_arr = default_arr,samplePerc_arr = defaultSamplePerc_arr,power=0.8,sig.level=0.05,avgSamplesPerDay=NULL) {
+  # Generates a list of matrices of sample sizes with varying delta (row) and % holdout/split (column) values specified by arguments
+  #
+  # Example: 
+  #     - getSampleSizeMatrices('z', list(c(0.5), c(0.6), c(0.8)))
+  #     - getSampleSizeMatrices('t', list(c(5,1), c(7,3.2), c(8,2.6)),delta_arr = c(0.01,0.02,0.03,0.04),
+  #                           samplePerc_arr = c(0.1,0.2,0.3,0.4), power = 0.9, sig.level = 0.01)
+  #
+  # Args:
+  #   test: 'z' or 't' test (string)
+  #   val_list: list of all the test_val_arr's (see getSampleSizeMatrix function above) to generate every Sample Size Matrix 
+  #     - list(c(pA_1), c(pA_2), c(pA_3)) for z-test
+  #     - list(c(muA_1,sd_1), c(muA_2,sd_2), c(muA_3,sd_3)) for t-test
+  #   delta_arr: array of delta values (see default above in "Default Values" section)
+  #   samplePerc_arr: array of % holdout/split values (see default above in "Default Values" section)
+  #   power: decimal form 
+  #   sig.level: decimal form
+  #
+  # Returns:
+  #    Returns a list of Sample Size Matrices (see function above) for each test_val_arr in val_list
+  
+  len <- length(val_list)
+  if(len==0) {
+    stop('val_list is empty')
+  }
+  ret <- list()
+  for(i in 1:len) {
+    ret[[i]] <- getSampleSizeMatrix(test,val_list[[i]],delta_arr,samplePerc_arr, power=power,sig.level=sig.level,avgSamplesPerDay)
+  }
+  return(ret)
+}
+```

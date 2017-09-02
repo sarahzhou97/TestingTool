@@ -1,0 +1,22 @@
+.btn {text-align:center; margin: 0 auto;display:block; margin-bottom:10px; width: 100%}
+.btn:hover {background-color:#9cbe30}
+#calculator_mainpanel {height:835px;overflow-y:scroll}
+#file_progress {display:none}
+.navbar-header {display:none}
+.navbar-nav {width:330px;margin:0 auto;float:none}
+li {display:inline-block}
+.navbar-default .navbar-nav>.active>a, .navbar-default .navbar-nav>.active>a:focus, .navbar-default .navbar-nav>.active>a:hover {color:#9cbe30}
+.nav-tabs>li.active>a, .nav-tabs>li.active>a:focus, .nav-tabs>li.active>a:hover{
+color:#9cbe30}
+.nav-tabs>li>a {color:#777}
+img {display:inline-block}
+#header #rightimg {margin-top:5px}
+h1 {display:inline-block}
+#header {margin:0 auto;position:relative;width:310px}
+#header img {width:50px;margin-top:10px;margin-bottom:25px}
+#about img {width:40px;margin-top:10px;margin-bottom:25px}
+#about h3 {display:inline-block}
+h3 {color:#515151}
+h4 {color:#846040} 
+h2 {color:#9cbe30}
+.footer {text-align:center}

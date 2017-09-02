@@ -1,0 +1,112 @@
+---
+title: "TestAnalyzer"
+output: html_document
+---
+
+Common Operations/Calculations for Hypothesis test analysis
+```{r common calculations}
+is.sig <- function(p.value) {
+   if(p.value<0.05) {
+   return("yes")
+  } else {
+    return("no")
+  } 
+}
+
+getConfidenceInterval <- function(start,end) {
+  return(paste(start,end,sep=" to "))
+}
+
+getIndex <- function(val1,val2) {
+  return(val1/val2-1)
+}
+
+```
+
+Assume two-tailed
+
+**Function for Z-test given known number of success samples and total sample size**
+
+x1 = number of successes in control group
+x2 = number of successes in test group
+n1 = number of samples in control group
+n2 = number of samples in test group
+
+```{r z-test}
+z.test.fromdata <- function(x1,x2,n1,n2) {
+  
+  #call r package for two prop z-test
+  results <- prop.test(c(x1,x2),c(n1,n2),correct=FALSE)
+  results_onesided <- prop.test(c(x1,x2),c(n1,n2),alternative = "greater",correct=FALSE)
+  
+  prop1 <- results$estimate["prop 1"]
+  prop2 <- results$estimate["prop 2"]
+  
+  #create named list
+  ret <- as.list(c(round(prop1,digits = 4),round(prop2,digits=4), round(results$p.value,digits=4),round(results_onesided$p.value,digits=4),getConfidenceInterval(round(results$conf.int[1],digits=4),round(results$conf.int[2],digits=4)),round(getIndex(prop1,prop2),digits=4),is.sig(results$p.value)))
+  names(ret) <- c("Test_proportion","Control_proportion", "p-value_two-sided", "p-value_one-sided","Confidence_Interval_95_perc","Index","Significant")
+  
+  return(ret)
+}
+```
+
+**Function for T-test given two data input vectors**
+
+controldata = vector of control data
+testdata = vector of test data
+
+```{r t-test from data}
+t.test.fromdata <- function(controldata,testdata) {
+  
+  #call r package for two prop t-test
+  results <- t.test(controldata,testdata,var.equal=TRUE,paired=FALSE)
+  results_onesided <- t.test(controldata,testdata,alternative = "greater", var.equal=TRUE,paired=FALSE)
+  
+  m1 <- results$estimate["mean of x"]
+  m2 <- results$estimate["mean of y"]
+  
+  #create named list
+  ret <- as.list(c(round(m1,digits=4),round(m2,digits=4),round(results$p.value,digits=4),round(results_onesided$p.value,digits=4),getConfidenceInterval(round(results$conf.int[1],digits=4),round(results$conf.int[2],digits=4)),  round(getIndex(m1,m2),digits=4),is.sig(results$p.value)))
+  names(ret) <- c("Test_mean","Control_mean", "p-value_two-sided", "p-value_one-sided","Confidence_Interval_95_perc","Index","Significant")
+  
+  return(ret)
+}
+```
+
+
+**Function for T-test given known sample size, mean, and standard deviations input**
+
+m1, m2: the sample means
+s1, s2: the sample standard deviations
+n1, n2: the same sizes
+m0: the null value for the difference in means to be tested for. Default is 0. 
+equal.variance: whether or not to assume equal variance. Default is FALSE. 
+
+```{r t-test from values}
+t.test.fromvalues <- function(m1,m2,s1,s2,n1,n2,equal.variance=TRUE) {
+ 
+   #calculations
+  if( equal.variance==FALSE ) {
+    se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+    df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+  } else {
+    se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) ) 
+    df <- n1+n2-2
+  }  
+  
+  t <- (m1-m2)/se
+  
+  p.value <- round(2*pt(-abs(t),df),digits=4)
+  p.value.one.sided <- round(pt(-abs(t),df),digits=4)
+  diff <- m1-m2
+  
+  confint.start <- round(diff - abs(qt(0.05/2,df))*se,digits=4)
+  confint.end <- round(diff + abs(qt(0.05/2,df))*se,digits=4)
+  
+  #create named list
+  ret <- as.list(c(round(m1,digits=4),round(m2,digits=4),p.value,p.value.one.sided, getConfidenceInterval(confint.start,confint.end),round(getIndex(m1,m2),digits=4),is.sig(p.value)))
+  names(ret) <- c("Test_mean","Control_mean", "p-value_two-sided", "p-value_one-sided","Confidence_Interval_95_perc","Index","Significant")
+
+  return(ret) 
+}
+```

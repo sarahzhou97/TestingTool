@@ -1,0 +1,134 @@
+---
+title: "UtilityFunctions"
+output: html_document
+---
+
+Convert String to Numeric Vector
+```{r}
+getNumericVector <- function(list_str) {
+  # Args:
+  #   list_str: raw String user input of a list of numbers
+  #
+  # Returns:
+  #    numeric vectors
+  return(as.numeric(unlist(as.vector(strsplit(list_str,", ")))))
+}
+```
+
+z-test Test Parameters Conversion
+```{r}
+process_p1 <- function(list_str) {
+  # Convert raw user input of z-test test parameters to the format needed by SampleSizeCalculator.Rmd z-test method
+  #
+  # Args:
+  #   list_str: raw String user input of p1 values
+  #
+  # Returns:
+  #    formatted list of p1 values (eg. list(c(p1_1), c(p1_2), c(p1_3)))
+  list <- strsplit(list_str,", ")[[1]]
+  ret <- vector("list",length(list))
+  for(i in 1:length(list)) {
+    ret[[i]] <- as.vector(as.numeric(list[[i]]))
+  }
+  return(ret)
+}
+```
+
+t-test Test Parameters Conversion
+```{r}
+process_mu1_sd <- function(list_str) {
+  # Convert raw user input of t-test test parameters to the format needed by SampleSizeCalculator.Rmd t-test   # method
+  #
+  # Args:
+  #   list_str: raw String user input of mu1 and standard deviation values
+  #
+  # Returns:
+  #    formatted list of mu1 and standard deviation values (eg. list(c(muA_1,sd_1), c(muA_2,sd_2), c(muA_3,sd_3)))
+  list <- as.list(strsplit(list_str,"; "))[[1]]
+  ret <- vector("list",length(list))
+  for(i in 1:length(list)) {
+    entry <- as.list(strsplit(list[[i]],", "))[[1]]
+    mu1 <- as.numeric(entry[[1]])
+    sd <- as.numeric(entry[[2]])
+    ret[[i]] <- as.vector(c(mu1,sd),mode="numeric")
+  }
+  return(ret)
+}
+```
+
+ANOVA Test Parameters Conversion
+```{r}
+process_anova <- function(list_str) {
+  list <- as.list(strsplit(list_str,"; "))[[1]]
+  ret <- vector("list",length(list))
+  for(i in 1:length(list)) {
+    entry <- as.list(strsplit(list[[i]],", "))[[1]]
+    mu1 <- as.numeric(entry[[1]])
+    sd <- as.numeric(entry[[2]])
+    numGroups <- as.numeric(entry[[3]])
+    ret[[i]] <- as.vector(c(mu1,sd,numGroups),mode="numeric")
+  }
+  return(ret)
+}
+```
+
+HTML Dataframe
+```{r}
+getHTMLTable <- function(df, caption = NULL,include.rownames = TRUE) {
+  # Takes in a dataframe and returns an HTML-formatted version of that dataframe
+  #
+  # Args:
+  #   df: R dataframe
+  #   caption: string displayed at the top (NULL by default)
+  #   include.rownames: Boolean indicating whether to include rownames (should always be TRUE because holdout values are 
+  #   the rownames)
+  #
+  # Returns:
+  #    HTML-formatted dataframe for display
+  if (is.null(caption)) {
+    return(print(xtable(df),
+                 type = "html", 
+                 html.table.attributes='class="data table table-bordered table-condensed"',
+                 include.rownames=include.rownames))
+  } else {
+    return(print(xtable(df,caption=caption),
+                type = "html", 
+                html.table.attributes='class="data table table-bordered table-condensed"',
+                include.rownames=include.rownames,
+                caption.placement="top"))
+  }
+}
+```
+
+Export to Excel
+```{r export}
+exportToExcel <- function(list_dfs,spaceBetween=2,file='out.xlsx',sheetName='sheet1') {
+  # Takes a list of dataframes and exports them to a single excel file saved in your current working directory
+  #
+  # Example: 
+  #     - exportToExcel([getSampleSizeMatrix('z', list(c(0.5), c(0.6), c(0.8)))])
+  #     - exportToExcel(getSampleSizeMatrix('t', list(c(5,1), c(7,3.2), c(8,2.6)),delta_arr =       
+  #     c(0.01,0.02,0.03,0.04),samplePerc_arr = c(0.1,0.2,0.3,0.4), power = 0.9, sig.level = 0.01))
+  #
+  # Args:
+  #   list_dfs: list of dataframes generated from above functions (getSampleSizeMatrices and getSampleSizeMatrix)
+  #   spaceBetween: empty space (cells) between each dataframe. Default is 2.
+  #   file: name of excel file. Default is "out.xlsx".
+  #   sheetName: name of excel sheet. Default is "sheet1".
+  #
+  # Returns:
+  #    none
+  wb <- createWorkbook()
+  sheet <- xlsx::createSheet(wb,sheetName)
+  
+  csHeader <- CellStyle(wb) + Font(wb,isBold=TRUE) + Alignment(wrapText = TRUE,h="ALIGN_CENTER") + Border(color="black",position=c("TOP","BOTTOM","LEFT","RIGHT"))
+  
+  rowNum <- 1
+  
+  for(df in list_dfs) {
+    xlsx::addDataFrame(df,sheet,startRow = rowNum,colnamesStyle=csHeader,rownamesStyle = csHeader)
+    rowNum<-rowNum + nrow(df)+ spaceBetween+1
+  }
+  xlsx::saveWorkbook(wb,file)
+}
+```

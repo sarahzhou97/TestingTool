@@ -1,0 +1,97 @@
+---
+title: "SampleSizeCalculator_Multivariate"
+output: html_document
+---
+Library
+```{r library}
+library(dplyr)
+```
+
+Default variables
+```{r default_var}
+default_arr <- c(0.01,0.02,0.05,0.1)
+```
+
+Sample Size Formulas
+```{r}
+anova_1way <- function(muA,muB,sd,numGroups,power = 0.8,sig.level = 0.05) {
+  # Computes the sample size needed for a one-way analysis of variance
+  #
+  # Args:
+  #   muA: mean of control (decimal form)
+  #   muB: mean of test (decimal form)
+  #   sd: standard deviation within each group
+  #   k: number of groups
+  #   power: decimal form
+  #   sig.level: decimal form
+  #
+  # Returns:
+  #    The sample size needed for a one-way analysis of variance
+  var <- sd^2
+  mu <- ((numGroups-1)*muA + muB)/numGroups
+  f <- (1/var)*sqrt((1/numGroups)*(((numGroups-1)*(muB-mu)^2)+(muA-mu)^2))
+  return(as.integer(ceiling(numGroups*pwr.anova.test(k=numGroups,f=f,sig.level = sig.level,power=power)$n)))
+}
+
+chisq <- function(pA,pB,factor1.numlevels,factor2.numlevels,power = 0.8,sig.level = 0.05) {
+  df <- (factor1.numlevels-1)*(factor2.numlevels-1)
+  numGroups <- factor1.numlevels*factor2.numlevels
+  w <- sqrt((numGroups-1)*((pB-pA)^2/pA))
+  return(as.integer(ceiling(pwr.chisq.test(w = w, df = df, sig.level = sig.level, power = power)$N)))
+}
+```
+
+Sample Size Matrix (single)
+```{r}
+getSampleSizeMatrix_multivariate <- function(test,test_val_arr, delta_arr = default_arr, power=0.8, sig.level=0.05, avgSamplesPerDay=NULL) {
+  
+  ret <- vector(mode = 'list',length=length(delta_arr))
+  
+  #Error Checking
+  if(length(test_val_arr )!=3) {stop('incorrect number of values entered in val_arr')}
+
+  for(j in 1:length(delta_arr)) {
+    if(test=='anova') {
+      #Error Checking
+      muA <- test_val_arr[1]
+        muB <- muA*(1+delta_arr[j])
+        sd <- test_val_arr[2]
+        numGroups <- test_val_arr[3]
+        if(is.null(avgSamplesPerDay)) {
+          ret[j] <- anova_1way(muA,muB,sd,numGroups,sig.level = sig.level,power = power)
+        } else {
+          ret[j] <- as.integer(ceiling(anova_1way(muA,muB,sd,numGroups,sig.level = sig.level,power = power)/avgSamplesPerDay))
+      }
+    } else if (test=="chisq") {
+      #Error Checking
+      pA <- test_val_arr[1]
+      if(pA>1) {stop('pA must be less than 1')}
+        pB <- pA*(1+delta_arr[j])
+        factor1.numlevels <- test_val_arr[2]
+        factor2.numlevels <- test_val_arr[3]
+        if(is.null(avgSamplesPerDay)) {
+          ret[j] <- chisq(pA,pB,factor1.numlevels,factor2.numlevels,power = 0.8,sig.level = 0.05)
+        } else {
+          ret[j] <- as.integer(ceiling(chisq(pA,pB,factor1.numlevels,factor2.numlevels,power = 0.8,sig.level = 0.05)))
+      }
+    }
+      
+    }
+  ret <- as.data.frame(ret)
+  colnames(ret) <- delta_arr
+  return(ret)
+}
+```
+
+Sample Size Matrices (Multiple)
+```{r matrices}
+getSampleSizeMatrices_multivariate <- function(test,val_list, delta_arr = default_arr,power=0.8,sig.level=0.05,avgSamplesPerDay=NULL) {
+  len <- length(val_list)
+  if(len==0) {stop('val_list is empty')}
+  
+  ret <- list()
+  for(i in 1:len) {
+    ret[[i]] <- getSampleSizeMatrix_multivariate(test,val_list[[i]],delta_arr,power=power,sig.level=sig.level,avgSamplesPerDay = avgSamplesPerDay)}
+  return(ret)
+}
+```
